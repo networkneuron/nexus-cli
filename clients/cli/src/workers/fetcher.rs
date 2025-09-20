@@ -118,9 +118,9 @@ impl TaskFetcher {
                 if promote {
                     match current {
                         crate::nexus_orchestrator::TaskDifficulty::Small => {
-                            // If server overrides to Small, do not promote
+                            // If server overrides to Small, promote to SmallMedium
                             // This handles server-side reputation gating
-                            crate::nexus_orchestrator::TaskDifficulty::Small
+                            crate::nexus_orchestrator::TaskDifficulty::SmallMedium
                         }
                         crate::nexus_orchestrator::TaskDifficulty::SmallMedium => {
                             crate::nexus_orchestrator::TaskDifficulty::Medium
@@ -309,7 +309,7 @@ mod tests {
     fn create_test_fetcher() -> TaskFetcher {
         let (event_sender, _event_receiver) = mpsc::channel(100);
         let event_sender = crate::workers::core::EventSender::new(event_sender);
-        let config = WorkerConfig::new(Environment::Production, "test_client".to_string(), 1);
+        let config = WorkerConfig::new(Environment::Production, "test_client".to_string());
 
         TaskFetcher::new(
             12345,
