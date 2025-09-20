@@ -3,15 +3,15 @@
 use crate::environment::Environment;
 use crate::events::Event;
 use crate::orchestrator::OrchestratorClient;
-use crate::workers::authenticated_worker::AuthenticatedWorker;
+use crate::workers::authenticated_worker::{AuthenticatedWorker, AuthenticatedWorkerArgs};
 use crate::workers::core::WorkerConfig;
 use ed25519_dalek::SigningKey;
 use tokio::sync::{broadcast, mpsc};
 use tokio::task::JoinHandle;
 
-/// Start single authenticated worker
+/// Starts a single authenticated worker that manages multiple prover threads internally.
 #[allow(clippy::too_many_arguments)]
-pub async fn start_authenticated_worker(
+pub async fn start_authenticated_workers(
     node_id: u64,
     signing_key: SigningKey,
     orchestrator: OrchestratorClient,
@@ -19,30 +19,45 @@ pub async fn start_authenticated_worker(
     environment: Environment,
     client_id: String,
     max_tasks: Option<u32>,
+    num_workers: usize,
     max_difficulty: Option<crate::nexus_orchestrator::TaskDifficulty>,
 ) -> (
     mpsc::Receiver<Event>,
     Vec<JoinHandle<()>>,
     broadcast::Sender<()>,
 ) {
-    let mut config = WorkerConfig::new(environment, client_id);
-    config.max_difficulty = max_difficulty;
+    let mut config = WorkerConfig::new(environment, client_id, num_workers);
+    config.max_difficulty = max_difficulty; // Set the max difficulty here
     let (event_sender, event_receiver) =
         mpsc::channel::<Event>(crate::consts::cli_consts::EVENT_QUEUE_SIZE);
 
     // Create a separate shutdown sender for max tasks completion
     let (shutdown_sender, _) = broadcast::channel(1);
+    let mut all_join_handles = Vec::new();
 
-    let worker = AuthenticatedWorker::new(
-        node_id,
-        signing_key,
-        orchestrator,
-        config,
-        event_sender,
-        max_tasks,
-        shutdown_sender.clone(),
-    );
+    // Only spawn a single worker, which will then use multiple threads for proving internally.
+    // This solves the task backlog issue where multiple workers would fetch tasks concurrently.
+    let worker_shutdown = shutdown.resubscribe();
+    let worker_shutdown_sender = shutdown_sender.clone(); // Clone for the worker task
 
-    let join_handles = worker.run(shutdown).await;
-    (event_receiver, join_handles, shutdown_sender)
+    let worker_handle = tokio::spawn(async move {
+        let worker_args = AuthenticatedWorkerArgs {
+            worker_id: 0, // We only have one worker, so ID is 0
+            node_id,
+            signing_key,
+            orchestrator,
+            config,
+            event_sender,
+            max_tasks, // The single worker gets all the tasks
+            shutdown_sender: worker_shutdown_sender,
+        };
+        let worker = AuthenticatedWorker::new(worker_args);
+        let handles = worker.run(worker_shutdown).await;
+        for handle in handles {
+            let _ = handle.await;
+        }
+    });
+    all_join_handles.push(worker_handle);
+
+    (event_receiver, all_join_handles, shutdown_sender)
 }
