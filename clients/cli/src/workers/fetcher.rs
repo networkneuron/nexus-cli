@@ -118,9 +118,9 @@ impl TaskFetcher {
                 if promote {
                     match current {
                         crate::nexus_orchestrator::TaskDifficulty::Small => {
-                            // If server overrides to Small, promote to SmallMedium
+                            // If server overrides to Small, do not promote
                             // This handles server-side reputation gating
-                            crate::nexus_orchestrator::TaskDifficulty::SmallMedium
+                            crate::nexus_orchestrator::TaskDifficulty::Small
                         }
                         crate::nexus_orchestrator::TaskDifficulty::SmallMedium => {
                             crate::nexus_orchestrator::TaskDifficulty::Medium
