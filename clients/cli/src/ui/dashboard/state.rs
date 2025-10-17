@@ -69,6 +69,10 @@ pub struct DashboardState {
     pub step2_start_time: Option<Instant>,
     /// Track the start time and original wait duration for current waiting period
     pub waiting_start_info: Option<(Instant, u64)>, // (start_time, original_wait_secs)
+    /// Scroll offset for the activity log
+    pub log_scroll_offset: usize,
+    /// Max logs that can be displayed in the logs panel
+    pub max_logs: usize,
 }
 
 impl DashboardState {
@@ -103,6 +107,8 @@ impl DashboardState {
             current_prover_state: ProverState::Waiting,
             step2_start_time: None,
             waiting_start_info: None,
+            log_scroll_offset: 0,
+            max_logs: 0,
         }
     }
     // Getter methods for private fields
@@ -146,5 +152,26 @@ impl DashboardState {
     /// Add an event to the processing queue
     pub fn add_event(&mut self, event: WorkerEvent) {
         self.pending_events.push_back(event);
+    }
+
+    /// Scroll the activity log up by one line
+    pub fn scroll_up(&mut self) {
+        if self.log_scroll_offset > 0 {
+            self.log_scroll_offset -= 1;
+        }
+    }
+
+    /// Scroll the activity log down by one line
+    pub fn scroll_down(&mut self) {
+        let displayed_logs_count = self
+            .activity_logs
+            .iter()
+            .filter(|event| event.should_display())
+            .count();
+        if displayed_logs_count > self.max_logs
+            && self.log_scroll_offset < displayed_logs_count - self.max_logs
+        {
+            self.log_scroll_offset += 1;
+        }
     }
 }
