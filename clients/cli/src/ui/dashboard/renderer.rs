@@ -7,7 +7,7 @@ use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::prelude::{Color, Style};
 use ratatui::widgets::Block;
 
-pub fn render_dashboard(f: &mut Frame, state: &DashboardState) {
+pub fn render_dashboard(f: &mut Frame, state: &mut DashboardState) {
     if state.with_background_color {
         f.render_widget(
             Block::default().style(Style::default().bg(Color::Rgb(16, 20, 24))),
@@ -34,7 +34,7 @@ pub fn render_dashboard(f: &mut Frame, state: &DashboardState) {
         .split(main_chunks[1]);
 
     info_panel::render_info_panel(f, content_chunks[0], state);
-    logs::render_logs_panel(f, content_chunks[1], state);
+    logs::render_logs_panel(f, content_chunks[1], &mut *state);
     metrics::render_metrics_section(f, main_chunks[2], state);
     footer::render_footer(f, main_chunks[3]);
 }
