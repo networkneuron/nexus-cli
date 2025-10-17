@@ -7,7 +7,7 @@ use crate::events::Event as WorkerEvent;
 use crate::ui::dashboard::{DashboardState, render_dashboard};
 use crate::ui::login::render_login;
 use crate::ui::splash::render_splash;
-use crossterm::event::{self, Event, KeyCode};
+use crossterm::event::{self, Event, KeyCode, MouseEventKind};
 use ratatui::{Frame, Terminal, backend::Backend};
 use std::time::{Duration, Instant};
 use tokio::sync::{broadcast, mpsc};
@@ -162,7 +162,7 @@ pub async fn run<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> std::i
                 state.update();
             }
         }
-        terminal.draw(|f| render(f, &app.current_screen))?;
+        terminal.draw(|f| render(f, &mut app.current_screen))?;
 
         // Handle splash-to-login transition
         if let Screen::Splash = app.current_screen {
@@ -183,53 +183,70 @@ pub async fn run<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> std::i
             }
         }
 
-        // Poll for key events
+        // Poll for events
         if event::poll(Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
-                // Skip events that are not KeyEventKind::Press
-                if key.kind == event::KeyEventKind::Release {
-                    continue;
-                }
+            match event::read()? {
+                Event::Key(key) => {
+                    // Skip events that are not KeyEventKind::Press
+                    if key.kind == event::KeyEventKind::Release {
+                        continue;
+                    }
 
-                // Handle exit events
-                if matches!(key.code, KeyCode::Esc | KeyCode::Char('q')) {
-                    // Send shutdown signal to workers
-                    let _ = app.shutdown_sender.send(());
-                    return Ok(());
-                }
+                    // Handle exit events
+                    if matches!(key.code, KeyCode::Esc | KeyCode::Char('q')) {
+                        // Send shutdown signal to workers
+                        let _ = app.shutdown_sender.send(());
+                        return Ok(());
+                    }
 
-                match &mut app.current_screen {
-                    Screen::Splash => {
-                        // Any key press will skip the splash screen
-                        if key.code != KeyCode::Esc && key.code != KeyCode::Char('q') {
-                            let ui_config = UIConfig::new(
-                                app.with_background_color,
-                                app.num_threads,
-                                app.version_update_available,
-                                app.latest_version.clone(),
-                            );
-                            app.current_screen = Screen::Dashboard(Box::new(DashboardState::new(
-                                app.node_id,
-                                app.environment.clone(),
-                                app.start_time,
-                                ui_config,
-                            )));
+                    match &mut app.current_screen {
+                        Screen::Splash => {
+                            // Any key press will skip the splash screen
+                            if key.code != KeyCode::Esc && key.code != KeyCode::Char('q') {
+                                let ui_config = UIConfig::new(
+                                    app.with_background_color,
+                                    app.num_threads,
+                                    app.version_update_available,
+                                    app.latest_version.clone(),
+                                );
+                                app.current_screen =
+                                    Screen::Dashboard(Box::new(DashboardState::new(
+                                        app.node_id,
+                                        app.environment.clone(),
+                                        app.start_time,
+                                        ui_config,
+                                    )));
+                            }
+                        }
+                        Screen::Login => {
+                            if key.code == KeyCode::Enter {
+                                app.login();
+                            }
+                        }
+                        Screen::Dashboard(_) => {}
+                    }
+                }
+                Event::Mouse(mouse_event) => {
+                    if let Screen::Dashboard(dashboard_state) = &mut app.current_screen {
+                        match mouse_event.kind {
+                            MouseEventKind::ScrollUp => {
+                                dashboard_state.scroll_up();
+                            }
+                            MouseEventKind::ScrollDown => {
+                                dashboard_state.scroll_down();
+                            }
+                            _ => {}
                         }
                     }
-                    Screen::Login => {
-                        if key.code == KeyCode::Enter {
-                            app.login();
-                        }
-                    }
-                    Screen::Dashboard(_dashboard_state) => {}
                 }
+                _ => {}
             }
         }
     }
 }
 
 /// Renders the current screen based on the application state.
-fn render(f: &mut Frame, screen: &Screen) {
+fn render(f: &mut Frame, screen: &mut Screen) {
     match screen {
         Screen::Splash => render_splash(f),
         Screen::Login => render_login(f),
