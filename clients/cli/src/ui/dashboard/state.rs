@@ -56,6 +56,8 @@ pub struct DashboardState {
     pub task_fetch_info: TaskFetchInfo,
     /// Animation tick counter
     pub tick: usize,
+    /// Vertical scroll position for the logs panel.
+    pub log_scroll: usize,
 
     /// Timestamp of last successful proof submission
     last_submission_timestamp: Option<String>,
@@ -97,6 +99,7 @@ impl DashboardState {
             zkvm_metrics: ZkVMMetrics::default(),
             task_fetch_info: TaskFetchInfo::default(),
             tick: 0,
+            log_scroll: 0,
             last_submission_timestamp: None,
             fetching_state: FetchingState::Idle,
             sysinfo: System::new_all(), // Initialize with all data for first refresh

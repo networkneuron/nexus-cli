@@ -7,7 +7,7 @@ use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::prelude::{Color, Style};
 use ratatui::widgets::Block;
 
-pub fn render_dashboard(f: &mut Frame, state: &DashboardState) {
+pub fn render_dashboard(f: &mut Frame, state: &mut DashboardState) {
     if state.with_background_color {
         f.render_widget(
             Block::default().style(Style::default().bg(Color::Rgb(16, 20, 24))),

@@ -162,7 +162,7 @@ pub async fn run<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> std::i
                 state.update();
             }
         }
-        terminal.draw(|f| render(f, &app.current_screen))?;
+        terminal.draw(|f| render(f, &mut app.current_screen))?;
 
         // Handle splash-to-login transition
         if let Screen::Splash = app.current_screen {
@@ -221,7 +221,20 @@ pub async fn run<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> std::i
                             app.login();
                         }
                     }
-                    Screen::Dashboard(_dashboard_state) => {}
+                    Screen::Dashboard(dashboard_state) => {
+                        // Handle dashboard-specific key events
+                        match key.code {
+                            KeyCode::Up => {
+                                dashboard_state.log_scroll =
+                                    dashboard_state.log_scroll.saturating_sub(1);
+                            }
+                            KeyCode::Down => {
+                                dashboard_state.log_scroll =
+                                    dashboard_state.log_scroll.saturating_add(1);
+                            }
+                            _ => {}
+                        }
+                    }
                 }
             }
         }
@@ -229,7 +242,7 @@ pub async fn run<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> std::i
 }
 
 /// Renders the current screen based on the application state.
-fn render(f: &mut Frame, screen: &Screen) {
+fn render(f: &mut Frame, screen: &mut Screen) {
     match screen {
         Screen::Splash => render_splash(f),
         Screen::Login => render_login(f),

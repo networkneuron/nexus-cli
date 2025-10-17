@@ -12,17 +12,27 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Padding, Paragraph, Wrap};
 
 /// Render enhanced logs panel with better event formatting.
-pub fn render_logs_panel(f: &mut Frame, area: ratatui::layout::Rect, state: &DashboardState) {
+pub fn render_logs_panel(f: &mut Frame, area: ratatui::layout::Rect, state: &mut DashboardState) {
     // Calculate how many log lines can fit in the available area
     // Account for borders and padding (subtract 3 for top/bottom borders + padding)
     let max_logs = (area.height.saturating_sub(3)) as usize;
     let log_count = if max_logs > 0 { max_logs } else { 1 };
 
-    let log_lines: Vec<Line> = state
+    let displayed_logs: Vec<&crate::events::Event> = state
         .activity_logs
         .iter()
         .filter(|event| event.should_display())
+        .collect();
+
+    // Prevent scroll from going out of bounds
+    if state.log_scroll >= displayed_logs.len().saturating_sub(log_count) {
+        state.log_scroll = displayed_logs.len().saturating_sub(log_count);
+    }
+
+    let log_lines: Vec<Line> = displayed_logs
+        .iter()
         .rev()
+        .skip(state.log_scroll)
         .take(log_count) // Show as many logs as fit in terminal
         .map(|event| {
             let status_icon = match (event.event_type, event.log_level) {
