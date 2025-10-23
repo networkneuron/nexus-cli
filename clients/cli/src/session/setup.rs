@@ -93,10 +93,17 @@ pub async fn setup_session(
     // Create orchestrator client
     let orchestrator_client = OrchestratorClient::new(env.clone());
 
-    // Clamp the number of workers to [1, 100% of num_cores]. Leave room for other processes.
+    // --- MODIFICATION START ---
+    // // Clamp the number of workers to [1, 75% of num_cores]. Leave room for other processes.
+    // let total_cores = crate::system::num_cores();
+    // let max_workers = ((total_cores as f64 * 0.75).ceil() as usize).max(1);
+    // let num_workers: usize = max_threads.unwrap_or(1).clamp(1, max_workers as u32) as usize;
+
+    // Clamp the number of workers to [1, total_cores].
+    // WARNING: This removes the 75% safety cap. Use with caution!
     let total_cores = crate::system::num_cores();
-    let max_workers = ((total_cores as f64 * 1).ceil() as usize).max(1);
-    let num_workers: usize = max_threads.unwrap_or(1).clamp(1, max_workers as u32) as usize;
+    let num_workers: usize = max_threads.unwrap_or(1).clamp(1, total_cores as u32) as usize;
+    // --- MODIFICATION END ---
 
     // Additional memory warning if explicitly requested
     if check_mem {
